@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Notes App</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- bootstrap icons-->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container py-5">
+    <div class="card p-4 shadow">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Quick Notes</h2>
+
+    <div>
+        <span class="me-3"><i class="bi bi-person-circle"></i> {{ request.user.username }}</span>
+
+        <form action="/logout/" method="POST" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">Logout</button>
+        </form>
+    </div>
+</div>
+
+    <!-- Input + Add Button -->
+    <div class="input-group mb-3">
+        <input type="text" id="noteInput" class="form-control" placeholder="Write your note :)">
+        <button onclick="addNote()" class="btn btn-primary">Add</button>
+    </div>
+
+    <!-- Search Bar -->
+<div class="mb-3">
+    <input type="text" id="searchInput" class="form-control" placeholder="Search notes..." onkeyup="searchNotes()">
+</div>
+
+    <!-- Notes List -->
+    <ul id="notesList" class="list-group"></ul>
+
+</div>
+</div> <!-- end card -->
+
+<!-- JS for functionality -->
+<script>
+    let allNotes = [];
+async function fetchNotes() {
+    const res = await fetch('/notes/');
+    const notes = await res.json();
+
+    allNotes = notes;        // store all notes
+    displayNotes(notes);     // display using new function
+}
+function displayNotes(notes) {
+    const list = document.getElementById('notesList');
+    list.innerHTML = '';
+
+    if (notes.length === 0) {
+        list.innerHTML = `<li class="list-group-item text-center text-muted">No notes found</li>`;
+        return;
+    }
+
+    notes.forEach(note => {
+        const li = document.createElement('li');
+        li.className = "list-group-item d-flex justify-content-between align-items-center";
+      li.innerHTML = `
+    <div>
+        <strong>
+            ${note.important ? '<i class="bi bi-star-fill text-warning"></i>' : '<i class="bi bi-star"></i>'}
+            ${note.content}
+        </strong><br>
+        <small class="text-muted">
+            ${note.timestamp ? new Date(note.timestamp).toLocaleString() : ""}
+        </small>
+    </div>
+
+    <div>
+        <button onclick="toggleImportant(${note.id})" class="btn btn-sm btn-warning">
+            <i class="bi ${note.important ? 'bi-star-fill' : 'bi-star'}"></i>
+        </button>
+
+        <button onclick="deleteNote(${note.id})" class="btn btn-sm btn-danger">
+            <i class="bi bi-trash"></i>
+        </button>
+    </div>
+`;
+        list.appendChild(li);
+    });
+}
+function searchNotes() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+
+    const filtered = allNotes.filter(note =>
+        note.content.toLowerCase().includes(query)
+    );
+
+    displayNotes(filtered);
+}
+
+async function addNote() {
+    const input = document.getElementById('noteInput');
+    if (input.value.trim() === "") return; // prevent empty notes
+
+    await fetch('/notes/add/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        },
+        body: JSON.stringify({content: input.value})
+    });
+
+    input.value = '';
+    fetchNotes();
+}
+
+async function deleteNote(id) {
+    await fetch(`/notes/delete/${id}/`);
+    fetchNotes();
+}
+async function toggleImportant(id) {
+    await fetch(`/notes/toggle/${id}/`);
+    fetchNotes();
+}
+async function toggleImportant(id) {
+    await fetch(`/notes/toggle/${id}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCSRFToken()
+        }
+    });
+    fetchNotes();
+}
+// CSRF token (needed for Django POST)
+function getCSRFToken() {
+    return document.cookie.split('; ')
+        .find(row => row.startsWith('csrftoken'))
+        ?.split('=')[1];
+}
+
+// Initial fetch
+fetchNotes();
+</script>
+
+</body>
+</html>
